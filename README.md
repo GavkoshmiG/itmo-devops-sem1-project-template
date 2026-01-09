@@ -54,6 +54,8 @@ SERVER_HOST=<IP-СЕРВЕРА> SERVER_USER=<ИМЯ-ПОЛЬЗОВАТЕЛЯ> SS
 ./scripts/tests.sh 2
 ```
 
+![Тесты пройдены!!!](assets/_tests.png)
+
 ## Контакт
 
 - tg: **@van_dark01**
