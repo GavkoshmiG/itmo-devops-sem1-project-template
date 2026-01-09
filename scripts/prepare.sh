@@ -10,7 +10,7 @@ DB_NAME="${DB_NAME:-project-sem-1}"
 DB_TABLE="${DB_TABLE:-prices}"
 
 if ! command -v psql >/dev/null 2>&1; then
-  echo "psql не найден. Установите PostgreSQL клиент."
+  echo "psql не найден!!!!!!!!! Установите PostgreSQL клиент."
   exit 1
 fi
 
