@@ -37,15 +37,10 @@ BEGIN
   END IF;
 END
 \$\$;
-
-DO \$\$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}') THEN
-    CREATE DATABASE "${DB_NAME}" OWNER ${DB_USER};
-  END IF;
-END
-\$\$;
 SQL
+
+run_psql -tc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | grep -q 1 || \
+  run_psql -c "CREATE DATABASE \"${DB_NAME}\" OWNER ${DB_USER};"
 
 PGPASSWORD="${DB_PASSWORD}" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<SQL
 CREATE TABLE IF NOT EXISTS ${DB_TABLE} (
