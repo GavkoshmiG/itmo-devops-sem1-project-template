@@ -4,6 +4,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+#Значения данным переменным задаю при запуске данного скрипта в консоли
 SERVER_HOST="${SERVER_HOST:-}"
 SERVER_USER="${SERVER_USER:-}"
 SSH_PORT="${SSH_PORT:-22}"
