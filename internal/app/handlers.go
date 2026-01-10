@@ -36,14 +36,9 @@ func PostPricesHandler(db *sql.DB) http.HandlerFunc {
 			return
 		}
 
-		if err := importCSV(db, csvReader); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		stats, err := loadStats(db)
+		stats, err := importCSV(db, csvReader)
 		if err != nil {
-			http.Error(w, "failed to load stats", http.StatusInternalServerError)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 

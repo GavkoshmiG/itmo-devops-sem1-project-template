@@ -11,21 +11,17 @@ import (
 	"time"
 )
 
-func importCSV(db *sql.DB, input io.Reader) error {
+type csvRow struct {
+	name       string
+	category   string
+	price      float64
+	createDate time.Time
+}
+
+func importCSV(db *sql.DB, input io.Reader) (statsResponse, error) {
 	reader := csv.NewReader(input)
 
-	tx, err := db.Begin()
-	if err != nil {
-		return errors.New("failed to begin transaction")
-	}
-
-	stmt, err := tx.Prepare(`INSERT INTO prices (id, name, category, price, create_date) VALUES ($1, $2, $3, $4, $5)`)
-	if err != nil {
-		tx.Rollback()
-		return errors.New("failed to prepare insert")
-	}
-	defer stmt.Close()
-
+	var rows []csvRow
 	line := 0
 	for {
 		record, err := reader.Read()
@@ -33,22 +29,14 @@ func importCSV(db *sql.DB, input io.Reader) error {
 			break
 		}
 		if err != nil {
-			tx.Rollback()
-			return errors.New("invalid csv data")
+			return statsResponse{}, errors.New("invalid csv data")
 		}
 		line++
 		if line == 1 && isHeader(record) {
 			continue
 		}
 		if len(record) < 5 {
-			tx.Rollback()
-			return errors.New("invalid csv row")
-		}
-
-		id, err := strconv.ParseInt(strings.TrimSpace(record[0]), 10, 64)
-		if err != nil {
-			tx.Rollback()
-			return errors.New("invalid id")
+			return statsResponse{}, errors.New("invalid csv row")
 		}
 
 		name := strings.TrimSpace(record[1])
@@ -56,26 +44,57 @@ func importCSV(db *sql.DB, input io.Reader) error {
 
 		price, err := strconv.ParseFloat(strings.TrimSpace(record[3]), 64)
 		if err != nil {
-			tx.Rollback()
-			return errors.New("invalid price")
+			return statsResponse{}, errors.New("invalid price")
 		}
 
 		createDate, err := time.Parse("2006-01-02", strings.TrimSpace(record[4]))
 		if err != nil {
-			tx.Rollback()
-			return errors.New("invalid date")
+			return statsResponse{}, errors.New("invalid date")
 		}
 
-		if _, err := stmt.Exec(id, name, category, price, createDate); err != nil {
+		rows = append(rows, csvRow{
+			name:       name,
+			category:   category,
+			price:      price,
+			createDate: createDate,
+		})
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return statsResponse{}, errors.New("failed to begin transaction")
+	}
+
+	stmt, err := tx.Prepare(`INSERT INTO prices (name, category, price, create_date) VALUES ($1, $2, $3, $4)`)
+	if err != nil {
+		tx.Rollback()
+		return statsResponse{}, errors.New("failed to prepare insert")
+	}
+	defer stmt.Close()
+
+	for _, row := range rows {
+		if _, err := stmt.Exec(row.name, row.category, row.price, row.createDate); err != nil {
 			tx.Rollback()
-			return errors.New("failed to insert row")
+			return statsResponse{}, errors.New("failed to insert row")
 		}
+	}
+
+	var stats statsResponse
+	stats.TotalItems = len(rows)
+	if err := tx.QueryRow(`
+		SELECT
+			COUNT(DISTINCT category) AS total_categories,
+			COALESCE(SUM(price), 0) AS total_price
+		FROM prices
+	`).Scan(&stats.TotalCategories, &stats.TotalPrice); err != nil {
+		tx.Rollback()
+		return statsResponse{}, errors.New("failed to load stats")
 	}
 
 	if err := tx.Commit(); err != nil {
-		return errors.New("failed to commit data")
+		return statsResponse{}, errors.New("failed to commit data")
 	}
-	return nil
+	return stats, nil
 }
 
 func exportCSV(db *sql.DB) ([]byte, error) {
@@ -91,25 +110,35 @@ func exportCSV(db *sql.DB) ([]byte, error) {
 		return nil, err
 	}
 
+	type csvOutRow struct {
+		id         int64
+		name       string
+		category   string
+		price      float64
+		createDate time.Time
+	}
+	var outRows []csvOutRow
+
 	for rows.Next() {
-		var (
-			id         int64
-			name       string
-			category   string
-			price      float64
-			createDate time.Time
-		)
-		if err := rows.Scan(&id, &name, &category, &price, &createDate); err != nil {
+		var row csvOutRow
+		if err := rows.Scan(&row.id, &row.name, &row.category, &row.price, &row.createDate); err != nil {
 			return nil, err
 		}
-		row := []string{
-			strconv.FormatInt(id, 10),
-			name,
-			category,
-			strconv.FormatFloat(price, 'f', -1, 64),
-			createDate.Format("2006-01-02"),
+		outRows = append(outRows, row)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	for _, row := range outRows {
+		record := []string{
+			strconv.FormatInt(row.id, 10),
+			row.name,
+			row.category,
+			strconv.FormatFloat(row.price, 'f', -1, 64),
+			row.createDate.Format("2006-01-02"),
 		}
-		if err := writer.Write(row); err != nil {
+		if err := writer.Write(record); err != nil {
 			return nil, err
 		}
 	}

@@ -11,12 +11,14 @@ import (
 func main() {
 	db, err := app.OpenDB()
 	if err != nil {
-		log.Fatalf("db open: %v", err)
+		log.Printf("db open: %v", err)
+		return
 	}
 	defer db.Close()
 
 	if err := app.EnsureSchema(db); err != nil {
-		log.Fatalf("db schema: %v", err)
+		log.Printf("db schema: %v", err)
+		return
 	}
 
 	router := mux.NewRouter()

@@ -44,11 +44,11 @@ run_psql -tc "SELECT 1 FROM pg_database WHERE datname = '${DB_NAME}'" | grep -q 
 
 PGPASSWORD="${DB_PASSWORD}" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<SQL
 CREATE TABLE IF NOT EXISTS ${DB_TABLE} (
-  id BIGINT,
-  name TEXT,
-  category TEXT,
-  price DOUBLE PRECISION,
-  create_date DATE
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  category VARCHAR(255) NOT NULL,
+  price DECIMAL(10,2) NOT NULL,
+  create_date TIMESTAMP NOT NULL
 );
 SQL
 
