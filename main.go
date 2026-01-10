@@ -31,5 +31,7 @@ func main() {
 	}
 
 	log.Println("listening on :8080")
-	log.Fatal(server.ListenAndServe())
+	if err := server.ListenAndServe(); err != nil {
+		log.Printf("server stopped: %v", err)
+	}
 }
